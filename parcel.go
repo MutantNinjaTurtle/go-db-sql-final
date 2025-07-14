@@ -2,7 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"errors"
 	"log"
 )
 
@@ -47,6 +46,7 @@ func (s ParcelStore) GetByClient(client int) ([]Parcel, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	var res []Parcel
 	for rows.Next() {
 		parsel := Parcel{}
@@ -55,6 +55,10 @@ func (s ParcelStore) GetByClient(client int) ([]Parcel, error) {
 			return nil, err
 		}
 		res = append(res, parsel)
+	}
+	err = rows.Err()
+	if err != nil {
+		log.Fatal(err)
 	}
 	return res, nil
 }
@@ -67,30 +71,17 @@ func (s ParcelStore) SetStatus(number int, status string) error {
 }
 
 func (s ParcelStore) SetAddress(number int, address string) error {
-	p, err := s.Get(number)
-	if err != nil {
-		return err
-	}
-	if p.Status == "registered" {
-		s.db.Exec("UPDATE parcel SET address = :address WHERE number = :number",
-			sql.Named("address", address),
-			sql.Named("number", number))
-	} else {
-		return errors.New("set new address, status not registered")
-	}
+	s.db.Exec("UPDATE parcel SET address = :address WHERE number = :number AND status = :status",
+		sql.Named("address", address),
+		sql.Named("number", number),
+		sql.Named("status", "registered"))
+
 	return nil
 }
 
 func (s ParcelStore) Delete(number int) error {
-	p, err := s.Get(number)
-	if err != nil {
-		return err
-	}
-	if p.Status == "registered" {
-		s.db.Exec("DELETE FROM parcel WHERE number = :number",
-			sql.Named("number", number))
-	} else {
-		log.Println("delete, status not registered")
-	}
+	s.db.Exec("DELETE FROM parcel WHERE number = :number AND status = :status",
+		sql.Named("number", number),
+		sql.Named("status", "registered"))
 	return nil
 }
